@@ -11,7 +11,6 @@ defmodule EventStore.Dashboard.Components.EventModal do
   @impl true
   def update(assigns, socket) do
     socket = assign_event(socket, assigns)
-
     {:ok, socket}
   end
 
@@ -25,8 +24,22 @@ defmodule EventStore.Dashboard.Components.EventModal do
         </div>
 
         <div class="modal-footer">
-          <button phx-click="navigate_to_previous_event" phx-value-event={@event_number} phx-target={@myself} class="btn btn-secondary">Previous event</button>
-          <button phx-click="navigate_to_next_event" phx-value-event={@event_number} phx-target={@myself} class="btn btn-primary">Next event</button>
+          <button
+            phx-click="navigate_to_previous_event"
+            phx-value-event={@event_number}
+            phx-target={@myself}
+            class="btn btn-secondary"
+          >
+            Previous event
+          </button>
+          <button
+            phx-click="navigate_to_next_event"
+            phx-value-event={@event_number}
+            phx-target={@myself}
+            class="btn btn-primary"
+          >
+            Next event
+          </button>
         </div>
       </div>
       """
@@ -75,8 +88,22 @@ defmodule EventStore.Dashboard.Components.EventModal do
         </table>
 
         <div class="modal-footer">
-          <button phx-click="navigate_to_previous_event" phx-value-event={@event.event_number} phx-target={@myself} class="btn btn-secondary">Previous event</button>
-          <button phx-click="navigate_to_next_event" phx-value-event={@event.event_number} phx-target={@myself} class="btn btn-primary">Next event</button>
+          <button
+            phx-click="navigate_to_previous_event"
+            phx-value-event={@event.event_number}
+            phx-target={@myself}
+            class="btn btn-secondary"
+          >
+            Previous event
+          </button>
+          <button
+            phx-click="navigate_to_next_event"
+            phx-value-event={@event.event_number}
+            phx-target={@myself}
+            class="btn btn-primary"
+          >
+            Next event
+          </button>
         </div>
       </div>
       """
@@ -111,7 +138,6 @@ defmodule EventStore.Dashboard.Components.EventModal do
       node: node,
       event_store: event_store,
       event_number: event_number,
-      return_to: return_to,
       stream_uuid: stream_uuid
     } = assigns
 
@@ -121,10 +147,8 @@ defmodule EventStore.Dashboard.Components.EventModal do
         node: node,
         event_store: event_store,
         stream_uuid: stream_uuid,
-        return_to: return_to,
         event: event,
         inspect_opts: [limit: :infinity, printable_limit: :infinity, pretty: true],
-        return_to: return_to,
         error: nil
       )
     else

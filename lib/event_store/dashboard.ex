@@ -19,18 +19,16 @@ defmodule EventStore.Dashboard do
 
   @impl PageBuilder
   def menu_link(%{event_stores: event_stores}, _capabilities) do
-    if event_stores == [] do
-      {:disabled, @page_title, @disabled_link}
-    else
-      {:ok, @page_title}
-    end
+    if event_stores == [],
+      do: {:disabled, @page_title, @disabled_link},
+      else: {:ok, @page_title}
   end
 
   @impl PageBuilder
   def mount(params, %{event_stores: event_stores}, socket) do
     case event_stores_or_auto_discover(event_stores, socket.assigns.page.node) do
       {:ok, event_stores} ->
-        socket = assign(socket, :event_stores, event_stores)
+        socket = assign(socket, :event_stores, Enum.sort(event_stores))
         event_store = nav_event_store(params, event_stores)
 
         if event_store do
@@ -58,13 +56,11 @@ defmodule EventStore.Dashboard do
 
   @impl PageBuilder
   def handle_event("show_stream", %{"stream" => stream_uuid}, socket) do
-    %{event_store: {event_store, _opts}, page: page} = socket.assigns
-
+    %{page: page} = socket.assigns
     stream_uuid = if stream_uuid == "$all", do: nil, else: stream_uuid
 
     to =
       live_dashboard_path(socket, page,
-        eventstore: inspect(event_store),
         nav: "events",
         stream: stream_uuid,
         event: nil
@@ -75,14 +71,13 @@ defmodule EventStore.Dashboard do
 
   @impl PageBuilder
   def handle_event("show_event", %{"event" => event, "stream" => stream}, socket) do
-    %{event_store: {event_store, _opts}, page: page} = socket.assigns
+    %{page: page} = socket.assigns
 
     stream_uuid = if stream == "$all", do: nil, else: stream
     event_number = String.to_integer(event)
 
     to =
       live_dashboard_path(socket, page,
-        eventstore: inspect(event_store),
         nav: "events",
         stream: stream_uuid,
         event: event_number
@@ -97,21 +92,28 @@ defmodule EventStore.Dashboard do
   end
 
   @impl PageBuilder
-  def render_page(assigns) do
+  def render(assigns) do
     if assigns[:error] do
       render_error(assigns)
     else
-      items =
-        for event_store <- assigns.event_stores do
-          {module, _opts} = event_store
-
-          {module,
-           name: inspect(module),
-           render: fn -> render_event_store_tab(event_store, assigns) end,
-           method: :patch}
-        end
-
-      nav_bar(items: items, nav_param: :eventstore, extra_params: [:nav], style: :bar)
+      ~H"""
+      <.live_nav_bar
+        extra_params={[:nav]}
+        id="event-store-dashboard"
+        nav_param="eventstore"
+        page={@page}
+        style={:bar}
+      >
+        <:item
+          :for={{module, _} = event_store <- @event_stores}
+          label={inspect(module)}
+          name={inspect(module)}
+          method="patch"
+        >
+          <.render_event_store_tab event_store={event_store} page={@page} socket={@socket} />
+        </:item>
+      </.live_nav_bar>
+      """
     end
   end
 
@@ -174,35 +176,48 @@ defmodule EventStore.Dashboard do
     end
   end
 
-  defp render_event_store_tab(event_store, assigns) do
+  defp render_event_store_tab(assigns) do
     if assigns[:error] do
       render_error(assigns)
     else
-      nav_bar(
-        items: [
-          streams: [
-            name: "Streams",
-            render: fn -> StreamsTable.render(event_store, assigns) end
-          ],
-          events: [
-            name: "Events",
-            render: fn -> EventsTable.render(event_store, assigns) end
-          ]
-          # event: [
-          #   name: "Event",
-          #   render: fn -> EventInfo.render(event_store, assigns) end
-          # ]
-          # TODO: Subscriptions, snapshots
-        ],
-        nav_param: :nav,
-        extra_params: [:eventstore],
-        style: :pills
-      )
+      items = [
+        %{name: "streams", module: StreamsTable, event_store: assigns.event_store},
+        %{name: "events", module: EventsTable, event_store: assigns.event_store}
+        # %{name: "event", module: EventInfo}
+        # TODO: Subscriptions, snapshots --%>
+      ]
+
+      assigns = assign(assigns, items: items)
+
+      ~H"""
+      <.live_nav_bar
+        extra_params={[:eventstore]}
+        id="event_store_tab"
+        nav_param="nav"
+        page={@page}
+        style={:pills}
+      >
+        # can't work out why, but if {assigns} is not included __changed__ is set to nil
+        # and StreamsTable/EventsTable don't render on change of event_store
+        <:item name="streams">
+          <StreamsTable.render event_store={@event_store} page={@page} {assigns} />
+        </:item>
+        <:item name="events">
+          <EventsTable.render event_store={@event_store} page={@page} {assigns} />
+        </:item>
+        <%!--
+        <:item name="event">
+          <EventInfo.render event_store={@event_store} page={@page} {assigns} />
+        </:item>
+        # TODO: Subscriptions, snapshots
+        --%>
+      </.live_nav_bar>
+      """
     end
   end
 
   defp render_error(assigns) do
-    error_message =
+    msg =
       case assigns.error do
         :connection_is_not_available ->
           "Dashboard is not connected yet."
@@ -232,15 +247,13 @@ defmodule EventStore.Dashboard do
           "Could not send request to node. Try again later."
       end
 
-    row(
-      components: [
-        columns(
-          components: [
-            card(value: error_message)
-          ]
-        )
-      ]
-    )
+    assigns = assign(assigns, :msg, msg)
+
+    ~H"""
+    <.row>
+      <:col><%= @msg %></:col>
+    </.row>
+    """
   end
 
   defp check_event_store_version(node) do
