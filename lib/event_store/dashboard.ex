@@ -46,7 +46,7 @@ defmodule EventStore.Dashboard do
 
           to = live_dashboard_path(socket, socket.assigns.page, eventstore: inspect(event_store))
 
-          {:ok, push_redirect(socket, to: to)}
+          {:ok, push_navigate(socket, to: to)}
         end
 
       {:error, error} ->
